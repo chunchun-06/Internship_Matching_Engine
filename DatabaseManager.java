@@ -5,9 +5,11 @@ import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
+
 public class DatabaseManager {
     private static Connection conn = null;
     private static final String DB_URL = "jdbc:sqlite:internship.db";
+
     public static void connect() {
         try {
             Class.forName("org.sqlite.JDBC");
@@ -16,6 +18,7 @@ public class DatabaseManager {
             System.out.println("DB Connection error: " + e.getMessage());
         }
     }
+
     public static void createTables() {
         String candidatesTable = "CREATE TABLE IF NOT EXISTS candidates ("
                 + "id INTEGER PRIMARY KEY AUTOINCREMENT,"
@@ -58,7 +61,7 @@ public class DatabaseManager {
         String applicationsTable = "CREATE TABLE IF NOT EXISTS applications ("
                 + "id INTEGER PRIMARY KEY AUTOINCREMENT,"
                 + "jobId INTEGER NOT NULL,"
-                +"score INTEGER DEFAULT 0,"
+                + "score INTEGER DEFAULT 0,"
                 + "candidateId INTEGER NOT NULL,"
                 + "FOREIGN KEY (jobId) REFERENCES jobs(jobId),"
                 + "FOREIGN KEY (candidateId) REFERENCES candidates(id)"
@@ -72,9 +75,10 @@ public class DatabaseManager {
             System.out.println("Error creating tables: " + e.getMessage());
         }
     }
+
     public static boolean registerCandidate(Candidate c) {
         String sql = "INSERT INTO candidates(name, email, password, phone, adhar, school, college, cgpa, hobbies, description, interestedArea, specialization, position, education, locationType, passOutYear, language) "
-                   + "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+                + "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, c.getName());
             pstmt.setString(2, c.getEmail());
@@ -100,6 +104,7 @@ public class DatabaseManager {
             return false;
         }
     }
+
     public static boolean updateCandidateProfile(Candidate c) {
         String sql = "UPDATE candidates SET "
                 + "name = ?, phone = ?, school = ?, college = ?, cgpa = ?, "
@@ -129,6 +134,7 @@ public class DatabaseManager {
             return false;
         }
     }
+
     public static Candidate checkCandidateLogin(String email, String password) {
         String sql = "SELECT * FROM candidates WHERE email = ? AND password = ?";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -144,6 +150,7 @@ public class DatabaseManager {
         }
         return null;
     }
+
     public static boolean registerCompany(Company c) {
         String sql = "INSERT INTO companies(name, email, password, contact, companyCode) VALUES(?,?,?,?,?)";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -159,13 +166,14 @@ public class DatabaseManager {
             return false;
         }
     }
+
     public static boolean updateCompanyProfile(Company c) {
         String sql = "UPDATE companies SET name = ?, contact = ? WHERE id = ?";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, c.getName());
             pstmt.setString(2, c.getContact());
             pstmt.setInt(3, c.getId());
-            
+
             int affectedRows = pstmt.executeUpdate();
             return affectedRows > 0;
         } catch (Exception e) {
@@ -173,6 +181,7 @@ public class DatabaseManager {
             return false;
         }
     }
+
     public static Company checkCompanyLogin(String email, String password) {
         String sql = "SELECT * FROM companies WHERE email = ? AND password = ?";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -193,6 +202,7 @@ public class DatabaseManager {
         }
         return null;
     }
+
     public static List<Job> getJobs() {
         List<Job> jobs = new ArrayList<>();
         String sql = "SELECT * FROM jobs";
@@ -205,11 +215,53 @@ public class DatabaseManager {
         }
         return jobs;
     }
+
+    // NEW: Helper method to get a single job by its ID
+    public static Job getJobById(int jobId) {
+        String sql = "SELECT * FROM jobs WHERE jobId = ?";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, jobId);
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) {
+                return mapResultSetToJob(rs);
+            }
+        } catch (Exception e) {
+            System.out.println("Error fetching job by ID: " + e.getMessage());
+        }
+        return null;
+    }
+
+    // NEW: Helper method to get a single candidate by their ID
+    public static Candidate getCandidateById(int candidateId) {
+        String sql = "SELECT * FROM candidates WHERE id = ?";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, candidateId);
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) {
+                return mapResultSetToCandidate(rs);
+            }
+        } catch (Exception e) {
+            System.out.println("Error fetching candidate by ID: " + e.getMessage());
+        }
+        return null;
+    }
+
+   
+
+    // MODIFIED: applyToJob now calculates and stores the score
     public static boolean applyToJob(int jobId, int candidateId) {
-        String sql = "INSERT INTO applications(jobId, candidateId) VALUES(?,?)";
+        Job job = getJobById(jobId);
+        Candidate candidate = getCandidateById(candidateId);
+        
+        // THIS IS THE FIX:
+        // It now calls your corrected MatchEngine to get the score.
+        int score = MatchEngine.calculateMatch(job, candidate);
+
+        String sql = "INSERT INTO applications(jobId, candidateId, score) VALUES(?,?,?)";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setInt(1, jobId);
             pstmt.setInt(2, candidateId);
+            pstmt.setInt(3, score);
             pstmt.executeUpdate();
             return true;
         } catch (Exception e) {
@@ -217,6 +269,7 @@ public class DatabaseManager {
             return false;
         }
     }
+
     public static List<Job> getMyApplications(int candidateId) {
         List<Job> jobs = new ArrayList<>();
         String sql = "SELECT j.* FROM jobs j JOIN applications a ON j.jobId = a.jobId WHERE a.candidateId = ?";
@@ -231,6 +284,7 @@ public class DatabaseManager {
         }
         return jobs;
     }
+
     public static List<Candidate> getAllCandidates() {
         List<Candidate> candidates = new ArrayList<>();
         String sql = "SELECT * FROM candidates";
@@ -243,6 +297,7 @@ public class DatabaseManager {
         }
         return candidates;
     }
+
     public static boolean postJob(Job j) {
         String sql = "INSERT INTO jobs(title, companyId, requiredSkills, stipend, timePeriod, area) VALUES(?,?,?,?,?,?)";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -259,9 +314,10 @@ public class DatabaseManager {
             return false;
         }
     }
+
     public static boolean updateJob(Job j) {
         String sql = "UPDATE jobs SET title = ?, requiredSkills = ?, stipend = ?, timePeriod = ?, area = ? "
-                   + "WHERE jobId = ? AND companyId = ?";
+                + "WHERE jobId = ? AND companyId = ?";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, j.getTitle());
             pstmt.setString(2, j.getRequiredSkills());
@@ -277,6 +333,7 @@ public class DatabaseManager {
             return false;
         }
     }
+
     public static boolean deleteJob(int jobId, int companyId) {
         String sqlApps = "DELETE FROM applications WHERE jobId = ?";
         String sqlJob = "DELETE FROM jobs WHERE jobId = ? AND companyId = ?";
@@ -293,6 +350,7 @@ public class DatabaseManager {
             return false;
         }
     }
+
     public static List<Job> getCompanyJobs(int companyId) {
         List<Job> jobs = new ArrayList<>();
         String sql = "SELECT * FROM jobs WHERE companyId = ?";
@@ -307,20 +365,25 @@ public class DatabaseManager {
         }
         return jobs;
     }
+
+    // MODIFIED: getApplicantsForJob now retrieves the score and sorts by it
     public static List<Candidate> getApplicantsForJob(int jobId) {
         List<Candidate> candidates = new ArrayList<>();
-        String sql = "SELECT c.* FROM candidates c JOIN applications a ON c.id = a.candidateId WHERE a.jobId = ?";
+        String sql = "SELECT c.*, a.score FROM candidates c JOIN applications a ON c.id = a.candidateId WHERE a.jobId = ? ORDER BY a.score DESC";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setInt(1, jobId);
             ResultSet rs = pstmt.executeQuery();
             while (rs.next()) {
-                candidates.add(mapResultSetToCandidate(rs));
+                Candidate c = mapResultSetToCandidate(rs);
+                c.setScore(rs.getInt("score")); // Set the score from the applications table
+                candidates.add(c);
             }
         } catch (Exception e) {
             System.out.println("Error fetching applicants: " + e.getMessage());
         }
         return candidates;
     }
+
     private static Candidate mapResultSetToCandidate(ResultSet rs) throws Exception {
         Candidate c = new Candidate();
         c.setId(rs.getInt("id"));
@@ -342,6 +405,7 @@ public class DatabaseManager {
         c.setLanguage(rs.getString("language"));
         return c;
     }
+
     private static Job mapResultSetToJob(ResultSet rs) throws Exception {
         Job j = new Job();
         j.setJobId(rs.getInt("jobId"));

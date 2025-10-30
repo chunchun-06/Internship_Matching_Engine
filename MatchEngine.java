@@ -2,7 +2,10 @@ import java.util.*;
 
 public class MatchEngine {
 
-    // Calculates the match score between a job and a candidate
+    /**
+     * Calculates the match score between a job and a candidate
+     * This version ONLY bases the score on matching skills.
+     */
     public static int calculateMatch(Job job, Candidate candidate) {
         double score = 0.0;
 
@@ -10,70 +13,72 @@ public class MatchEngine {
         Set<String> jobSkills = new HashSet<>();
         String jobReqSkills = (job.getRequiredSkills() != null) ? job.getRequiredSkills().toLowerCase() : "";
         String jobArea = (job.getArea() != null) ? job.getArea().toLowerCase() : "";
-        jobSkills.addAll(Arrays.asList(jobReqSkills.split("\\s*,\\s*")));
-        jobSkills.addAll(Arrays.asList(jobArea.split("\\s*,\\s*")));
+        
+        for (String skill : jobReqSkills.split("\\s*,\\s*")) {
+            jobSkills.add(skill.trim());
+        }
+        // This loop is commented out, as you requested
+        // for (String skill : jobArea.split("\\s*,\\s*")) {
+        //     jobSkills.add(skill.trim());
+        // }
+
         jobSkills.remove(""); // remove empty entries
 
         // --- 2. Candidate Skills ---
         Set<String> candidateSkills = new HashSet<>();
         String candInterested = (candidate.getInterestedArea() != null) ? candidate.getInterestedArea().toLowerCase() : "";
         String candSpecial = (candidate.getSpecialization() != null) ? candidate.getSpecialization().toLowerCase() : "";
-        candidateSkills.addAll(Arrays.asList(candInterested.split("\\s*,\\s*")));
-        candidateSkills.addAll(Arrays.asList(candSpecial.split("\\s*,\\s*")));
+        
+        for (String skill : candInterested.split("\\s*,\\s*")) {
+            candidateSkills.add(skill.trim());
+        }
+        for (String skill : candSpecial.split("\\s*,\\s*")) {
+            candidateSkills.add(skill.trim());
+        }
+        
         candidateSkills.remove("");
 
         // --- 3. Skill Match Calculation ---
+        
+        if (jobSkills.isEmpty()) {
+            return 0;
+        }
+
         Set<String> commonSkills = new HashSet<>(jobSkills);
         commonSkills.retainAll(candidateSkills);
 
-        if (!jobSkills.isEmpty()) {
-            double matchRatio = (double) commonSkills.size() / jobSkills.size();
-            score += matchRatio * 100;  // base percentage
-        }
+        double matchRatio = (double) commonSkills.size() / jobSkills.size();
+        score = matchRatio * 100; // This will be 80 for the (4/5) match
 
-        // --- 4. Education Match ---
-        String candEducation = (candidate.getEducation() != null) ? candidate.getEducation().toLowerCase() : "";
-        if (!candEducation.isEmpty() && jobReqSkills.contains(candEducation)) {
-            score += 15;
+        
+        // --- 4. RURAL BONUS (NEWLY ADDED) ---
+        String locationType = (candidate.getLocationType() != null) ? candidate.getLocationType().toLowerCase() : "";
+        
+        // Check if the location is 'rural'
+        if (locationType.equals("rural")) {
+            // --- THIS LINE IS CHANGED ---
+            score = score + 10; // Apply +10 point bonus
         }
+        // --- END OF NEW SECTION ---
 
-        // --- 5. CGPA Bonus ---
-        if (candidate.getCgpa() >= 8.0) {
-            score += 15;
-        } else if (candidate.getCgpa() >= 7.0) {
-            score += 10;
-        }
 
-        // --- 6. Position Match ---
-        String candPosition = (candidate.getPosition() != null) ? candidate.getPosition().toLowerCase() : "";
-        String jobTitle = (job.getTitle() != null) ? job.getTitle().toLowerCase() : "";
-        if (!candPosition.isEmpty() && jobTitle.contains(candPosition)) {
-            score += 10;
-        }
-
-        // --- 7. Region Bonus (+10% for Rural) ---
-        String region = (candidate.getLocationType() != null) ? candidate.getLocationType().toLowerCase() : "";
-        if (region.contains("rural")) {
-            score *= 1.10; // add 10% bonus
-        }
-
-        // --- 8. Cap final score at 100 ---
+        // --- 5. Return the final score ---
+        // Round to the nearest whole number and ensure it doesn't go over 100.
         return (int) Math.min(Math.round(score), 100);
     }
 
     // Generates a ranked list of job recommendations for a given candidate
     public static List<MatchResult> getRecommendations(Candidate c) {
         List<MatchResult> results = new ArrayList<>();
-        List<Job> allJobs = DatabaseManager.getJobs(); // fetch all jobs from data source
+        List<Job> allJobs = DatabaseManager.getJobs(); 
 
         for (Job job : allJobs) {
             int score = calculateMatch(job, c);
-            if (score > 30) { // threshold to consider a match
+            if (score > 30) { 
                 results.add(new MatchResult(job, c, score));
             }
         }
 
-        // Sort results in descending order of match score
         results.sort((m1, m2) -> Integer.compare(m2.getScore(), m1.getScore()));
         return results;
     }
@@ -89,7 +94,7 @@ class MatchResult {
         this.job = job;
         this.candidate = candidate;
         this.score = score;
-        this.candidate.setScore(score); // assign calculated score to candidate
+        this.candidate.setScore(score); 
     }
 
     public Job getJob() { return job; }

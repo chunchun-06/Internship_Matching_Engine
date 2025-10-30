@@ -377,7 +377,7 @@ public class Main {
                 for (Candidate cand : candidates) {
                     System.out.println(SEPARATOR);
                     System.out.println("  - Name: " + cand.getName() + " | Email: " + cand.getEmail() + "  | Score: " + cand.getScore() + " | Phone: " + cand.getPhone());
-                    System.out.println("    Skills: " + cand.getInterestedArea() + ", " + cand.getSpecialization());
+                    System.out.println("    Skills: " + cand.getInterestedArea() + " | Specialization: " + cand.getSpecialization());
                     System.out.println("    CGPA: " + cand.getCgpa() + " | Education: " + cand.getEducation());
                 }
                 System.out.println(SEPARATOR);
