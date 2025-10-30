@@ -17,6 +17,7 @@ public class Candidate {
     String locationType;
     int passOutYear;
     String language;
+    int score;
 
     public int getId() { return id; }
     public void setId(int id) { this.id = id; }
@@ -54,4 +55,8 @@ public class Candidate {
     public void setPassOutYear(int year) { this.passOutYear = year; }
     public String getLanguage() { return language; }
     public void setLanguage(String language) { this.language = language; }
+    public void setScore(int score){this.score=score;}
+    public int getScore(){
+        return score;
+    }
 }
